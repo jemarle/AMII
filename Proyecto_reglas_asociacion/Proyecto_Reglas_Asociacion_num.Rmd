@@ -1,0 +1,136 @@
+---
+title: "Proyecto Reglas Asociación"
+subitle: "Máster Oficial Ciencia Datos-UV"
+author: "alumnos"
+output: html_notebook
+---
+
+## Qualitative Bankruptcy Data Set
+
+Utilizaremos UNA VERSIÓN PARECIDA PERO NO IGUAL del conjunto de datos `Qualitative_Bankruptcy Data Set` del repositorio *UCI Machine Learning* para trabajar el estudio de las variables Categóricas/Cualitativas y la bondad de las reglas de Asociación para extraer conocimiento de un conjunto de datos, en este caso, predecir la bancarrota (*Bankruptcy*) en base a parámetros cuantitativos/cualitativos preparados por expertos.
+
+Cargar el fichero `Qualitative_Bankruptcy.num.txt` y crear el `data.frame` `QB`.
+
+```{r}
+#solucion
+
+```
+
+Asigna nombres válidos a las columnas del `data.frame` (usa `make.names` para asegurarte que no contiene símbolos raros). Más información en el fichero `Qualitative_Bankruptcy.info.txt`
+
+```{r}
+colnames(QB) <- make.names(c("Industrial Risk", "Management Risk", 
+                               "Financial Flexibility","Credibility",
+                               "Competitiveness", "Operating Risk", 
+                               "Bankruptcy"))
+```
+
+Sabiendo que las variables numéricas representan un valor entre 0 y 10 para indicar la valoración del experto de cada variable, prueba a discretizar las variables numéricas en 3 factores ordenados **QB** de ***manera no supervisada*** para estimar la clase (`Bankruptcy`). La etiqueta asociada a valores bajos será "N" de valoración "negative", la etiqueta de valores altos será "P" de "positive" y el resto corresponderá a etiqueta "A" de "average".
+
+```{r}
+#solucion
+
+```
+
+Asegúrate que toda las variables son factores de 3 niveles y ORDENADOS que respetan N\<A\<P. La clase `Bankruptcy` debe tener como primera etiqueta "B".
+
+```{r}
+#solucion
+
+```
+
+## Análisis Cualitativo
+
+Realiza un estudio del conjunto discretizado para determinar si es apropiado para resolver el problema (estimar Bankruptcy con el menor número de errores) .
+
+### Análisis univariante de las variables Cualitativas
+
+Obtén la descripción de las variables [incluida la clase]{.underline}. Al menos, se debe obtener la tabla de frecuencias y un gráfico para mostrar la frecuencias.
+
+```{r}
+#solucion
+
+```
+
+[Describe, al menos, 2 conclusiones.]{.underline}
+
+**\>\>\>\<\<\<Conclusiones del análisis univariante...\>\>\>\<\<\<**
+
+### Análisis bivariante de las variables Cualitativas
+
+Obtén la relación entre las variables [y la clase]{.underline} (ej. matrices de contingencia). Determina el grado de asociación (ej. chi2, CramerV, ...) entre cada variable y la clase.
+
+*Nota: La función PairApply de la librería DescTools permite calcular estadísticos para todos los pares. La función PlotCorr permite representar los resultados de PairApply.*
+
+```{r}
+#solucion
+
+```
+
+Contrasta los resultados con los gráficos de Mosaico de los casos más relevantes.
+
+```{r}
+#solucion
+
+```
+
+[Describe, al menos, 2 conclusiones:]{.underline}
+
+**\>\>\>\<\<\<Conclusiones del análisis bivariante...\>\>\>\<\<\<**
+
+## Reglas de Asociación
+
+Transforma el `data.frame` en *transactions* con el nombre `QBt` y analízalas con `summary`.
+
+```{r}
+#solution
+
+```
+
+Obtén las reglas de asociación que tienen, al menos, un `support` del 10% y una `confidence` del 100%. ¿Cuántas reglas se obtienen?
+
+```{r}
+#solution
+
+```
+
+Muestra las 3 primeras reglas ordenadas por `lift`.
+
+```{r}
+#solution
+
+```
+
+Obtén las reglas de asociación que tengan como **ANTECEDENTE** `Bankruptcy=B` . Reduce el número de reglas con las condiciones `lift>2 & count>50`. ¿Observas algún patrón/curiosidad en estas reglas?
+
+*Nota: Representar las reglas ayuda en la interpretación.*
+
+```{r}
+#solucion
+
+```
+
+Obtén las reglas de asociación en las que **no** aparezca la variable`Bankruptcy` (ni en el antecedente ni en la consecuencia). Representa las reglas. ¿Para qué sirven estas reglas/grafo si no aparece la variable objetivo?
+
+```{r}
+#solucion
+
+```
+
+## Predicción con reglas de asociación
+
+Desarrolla un modelo de clasificación basado en reglas de asociación para estimar la Bancarrota. Comprueba la bondad del modelo (sensibilidad y especificidad) dividiendo el conjunto de datos en Entrenamiento 80% y Test 20%. Utiliza la función `createDataPartition` y `confusionMatrix` del paquete `caret`.
+
+```{r}
+set.seed(666)
+#solucion
+
+```
+
+[Reflexiones sobre el modelo basado en reglas:]{.underline}
+
+**\>\>\>\<\<\<Conclusiones del modelo basado en reglas...\>\>\>\<\<\<**
+
+¿has utilizado todas las variables en el modelo y por qué?
+
+¿has seleccionado reglas y por qué? ¿en base a qué criterio?
