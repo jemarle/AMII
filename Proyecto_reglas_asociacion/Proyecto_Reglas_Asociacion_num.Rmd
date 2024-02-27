@@ -1,9 +1,33 @@
 ---
-title: "Proyecto Reglas Asociación"
-subitle: "Máster Oficial Ciencia Datos-UV"
-author: "alumnos"
-output: html_notebook
+title: "Proyecto: Reglas de Asociación (Aprendizaje Máquina II)"
+author: "Carlos Sánchez Polo y Jesús Martínez Leal"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    echo: yes
+    number_sections: no
+    theme: readable
+    toc: yes
+subtitle: Máster Ciencia de Datos UV
 ---
+
+```{r setup, cache = F, echo = F, message = F, warning = F, tidy = F}
+# Configuración general de chunks
+library(knitr)
+options(width = 100)
+knitr::opts_chunk$set(echo = T, message = T, error = F, warning = F, comment = NA, dpi = 100, tidy = T, cache.path = '.cache/', fig.path = './figure/', include = T)
+```
+
+Como es habitual, cargamos las librerías que necesitamos al inicio del documento.
+
+```{r librerias, message = T, include = T, echo = T}
+# Carga de librerías necesarias con pacman
+if (!require(pacman)) {
+  install.packages("pacman")
+  library(pacman)
+}
+pacman::p_load(readr, stringr, tidyr, dplyr, readxl, ggplot2, forcats, kableExtra, greekLetters, fitdistrplus, OneR, caret, OneR, arules, arulesCBA, arulesViz, Rgraphviz)
+```
 
 ## Qualitative Bankruptcy Data Set
 
@@ -11,32 +35,43 @@ Utilizaremos UNA VERSIÓN PARECIDA PERO NO IGUAL del conjunto de datos `Qualitat
 
 Cargar el fichero `Qualitative_Bankruptcy.num.txt` y crear el `data.frame` `QB`.
 
-```{r}
-#solucion
-
+```{r lectura_QB}
+QB <- read.table("./data/Qualitative_Bankruptcy.num.txt", header = FALSE, sep = ",", stringsAsFactors = TRUE)
 ```
 
 Asigna nombres válidos a las columnas del `data.frame` (usa `make.names` para asegurarte que no contiene símbolos raros). Más información en el fichero `Qualitative_Bankruptcy.info.txt`
 
-```{r}
+```{r colnames_QB}
 colnames(QB) <- make.names(c("Industrial Risk", "Management Risk", 
                                "Financial Flexibility","Credibility",
                                "Competitiveness", "Operating Risk", 
                                "Bankruptcy"))
 ```
 
+```{r visualizacion_QB}
+str(QB)
+head(QB)
+```
+
 Sabiendo que las variables numéricas representan un valor entre 0 y 10 para indicar la valoración del experto de cada variable, prueba a discretizar las variables numéricas en 3 factores ordenados **QB** de ***manera no supervisada*** para estimar la clase (`Bankruptcy`). La etiqueta asociada a valores bajos será "N" de valoración "negative", la etiqueta de valores altos será "P" de "positive" y el resto corresponderá a etiqueta "A" de "average".
 
-```{r}
-#solucion
-
+```{r bin_columns}
+discretizedQB <- discretize(QB, nbins = 3, method = "clusters", labels = c("N", "A", "P")) # usar discretize
+head(discretizedQB)
 ```
 
 Asegúrate que toda las variables son factores de 3 niveles y ORDENADOS que respetan N\<A\<P. La clase `Bankruptcy` debe tener como primera etiqueta "B".
 
-```{r}
-#solucion
+```{r conversion_factores_ordenados}
+for (i in 1:(ncol(discretizedQB) - 1)) {
+  discretizedQB[[i]] <- factor(discretizedQB[[i]], levels = c("N", "A", "P"), ordered = TRUE)
+}
 
+if (levels(discretizedQB$Bankruptcy)[1] == "B"){
+  print( paste( "Efectivamente, el primer nivel de la clase Bankruptcy es:", levels(discretizedQB$Bankruptcy)[1]) ) 
+} else {
+  print("No, el primer nivel de la clase Bankruptcy es:", levels(discretizedQB$Bankruptcy)[1])
+}
 ```
 
 ## Análisis Cualitativo
@@ -48,7 +83,6 @@ Realiza un estudio del conjunto discretizado para determinar si es apropiado par
 Obtén la descripción de las variables [incluida la clase]{.underline}. Al menos, se debe obtener la tabla de frecuencias y un gráfico para mostrar la frecuencias.
 
 ```{r}
-#solucion
 
 ```
 
