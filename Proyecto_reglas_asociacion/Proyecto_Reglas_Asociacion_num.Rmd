@@ -56,22 +56,82 @@ head(QB)
 Sabiendo que las variables numéricas representan un valor entre 0 y 10 para indicar la valoración del experto de cada variable, prueba a discretizar las variables numéricas en 3 factores ordenados **QB** de ***manera no supervisada*** para estimar la clase (`Bankruptcy`). La etiqueta asociada a valores bajos será "N" de valoración "negative", la etiqueta de valores altos será "P" de "positive" y el resto corresponderá a etiqueta "A" de "average".
 
 ```{r bin_columns}
-discretizedQB <- discretize(QB, nbins = 3, method = "clusters", labels = c("N", "A", "P")) # usar discretize
-head(discretizedQB)
+# Definir las columnas a discretizar
+columna_clase <- "Bankruptcy"
+columns_to_discretize <- setdiff(names(QB), columna_clase)
+
+# Definir los métodos de discretización y sus configuraciones
+methods <- c("interval", "frequency", "cluster")
+
+discretization_configs <- list(
+  interval = list(
+    method = "interval",
+    breaks = 3,
+    labels = c("N", "A", "P")
+  ),
+  frequency = list(
+    method = "frequency",
+    breaks = 3,
+    labels = c("N", "A", "P")
+  ),
+  cluster = list(
+    method = "cluster",
+    breaks = 3,
+    labels = c("N", "A", "P")
+  )
+)
+
+# Crear una lista para almacenar los dataframes discretizados
+discretizedQB_list <- list()
+
+# Iterar sobre los métodos de discretización y aplicarlos
+for (method in methods) {
+  # Crear la lista de configuraciones con los nombres de las columnas
+  names_list <- setNames(rep(list(discretization_configs[[method]]), length(columns_to_discretize)), columns_to_discretize)
+  
+  # Discretizar y agregar la clase
+  discretizedQB <- discretizeDF(QB[, columns_to_discretize], methods = names_list)
+  discretizedQB[[columna_clase]] <- QB[[columna_clase]]
+  
+  # Agregar el dataframe discretizado a la lista
+  discretizedQB_list[[method]] <- discretizedQB
+}
+
+# Ver los primeros elementos de la lista (dataframes discretizados)
+head(discretizedQB_list$interval)
+head(discretizedQB_list$frequency)
+head(discretizedQB_list$cluster)
 ```
 
 Asegúrate que toda las variables son factores de 3 niveles y ORDENADOS que respetan N\<A\<P. La clase `Bankruptcy` debe tener como primera etiqueta "B".
 
 ```{r conversion_factores_ordenados}
-for (i in 1:(ncol(discretizedQB) - 1)) {
-  discretizedQB[[i]] <- factor(discretizedQB[[i]], levels = c("N", "A", "P"), ordered = TRUE)
+for (method in methods) {
+  # Crear la lista de configuraciones con los nombres de las columnas
+  names_list <- setNames(rep(list(discretization_configs[[method]]), length(columns_to_discretize)), columns_to_discretize)
+  
+  # Discretizar y agregar la clase
+  discretizedQB <- discretizeDF(QB[, columns_to_discretize], methods = names_list)
+  discretizedQB[[columna_clase]] <- QB[[columna_clase]]
+  
+  # Convertir las variables a factores ordenados
+  for (i in 1:(ncol(discretizedQB) - 1)) {
+    discretizedQB[[i]] <- factor(discretizedQB[[i]], levels = c("N", "A", "P"), ordered = TRUE)
+  }
+  
+  # Verificar el primer nivel de la clase Bankruptcy
+  if (levels(discretizedQB[[columna_clase]])[1] == "B") {
+    print(paste("Para el método", method, "el primer nivel de la clase Bankruptcy es:", levels(discretizedQB[[columna_clase]])[1]))
+  } else {
+    print(paste("Para el método", method, "el primer nivel de la clase Bankruptcy no es 'B'."))
+  }
+  
+  # Agregar el dataframe discretizado a la lista
+  discretizedQB_list[[method]] <- discretizedQB
 }
 
-if (levels(discretizedQB$Bankruptcy)[1] == "B"){
-  print( paste( "Efectivamente, el primer nivel de la clase Bankruptcy es:", levels(discretizedQB$Bankruptcy)[1]) ) 
-} else {
-  print("No, el primer nivel de la clase Bankruptcy es:", levels(discretizedQB$Bankruptcy)[1])
-}
+# Ver la estructura de los dataframes discretizados
+str(discretizedQB_list)
 ```
 
 ## Análisis Cualitativo
@@ -82,13 +142,152 @@ Realiza un estudio del conjunto discretizado para determinar si es apropiado par
 
 Obtén la descripción de las variables [incluida la clase]{.underline}. Al menos, se debe obtener la tabla de frecuencias y un gráfico para mostrar la frecuencias.
 
-```{r}
+```{r tabla_frecuencias}
+obtener_tabla_frecuencias <- function(columna) {
+  tabla_frecuencias <- table(columna)
+  df_frecuencias <- as.data.frame(tabla_frecuencias)
+  colnames(df_frecuencias) <- c("Categoria", "Frecuencia")
+  df_frecuencias$Porcentaje <- prop.table(tabla_frecuencias) * 100
+  return(df_frecuencias)
+}
 
+# Crear una lista vacía para almacenar las tablas de frecuencias
+tablas_frecuencias <- list()
+
+# Iterar sobre los métodos disponibles en discretizedQB_list
+for (method_name in names(discretizedQB_list)) {
+  # Obtener el dataframe discretizado correspondiente al método
+  discretized_data <- discretizedQB_list[[method_name]]
+  
+  # Calcular la tabla de frecuencias para cada variable en el dataframe discretizado
+  tablas_frecuencias[[method_name]] <- lapply(discretized_data, obtener_tabla_frecuencias)
+}
+
+# Verificar la estructura de la lista de listas de tablas de frecuencias
+str(tablas_frecuencias)
+```
+
+```{r grafico_frecuencias_porcentajes}
+library(tidyr)
+
+# Lista para almacenar los gráficos
+plots_frecuencia <- list()
+plots_porcentaje <- list()
+
+# Iterar sobre las listas de tablas_frecuencias
+for (method in names(tablas_frecuencias)) {
+  # Convertir la lista de listas en un solo dataframe
+  tabla_total <- bind_rows(tablas_frecuencias[[method]], .id = "Variable")
+  
+  # Desempaquetar la lista de listas para tener una fila por combinación de variable y método
+  tabla_total <- unnest(tabla_total, cols = Frecuencia)
+  
+  # Crear el gráfico de frecuencias
+  plot_frecuencia <- ggplot(tabla_total, aes(x = Categoria, y = Frecuencia, fill = Categoria)) +
+    geom_bar(stat = "identity", position = position_dodge(width = 0.9), width = 0.8) +
+    facet_wrap(~ Variable, scales = "free") +
+    labs(title = paste("Frecuencias de variables cualitativas -", method), x = "Categoría", y = "Frecuencia") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  # Agregar el gráfico a la lista de gráficos de frecuencia
+  plots_frecuencia[[method]] <- plot_frecuencia
+  
+  # Crear el gráfico de porcentajes
+  plot_porcentaje <- ggplot(tabla_total, aes(x = Categoria, y = Porcentaje, fill = Categoria)) +
+    geom_bar(stat = "identity", position = position_dodge(width = 0.9), width = 0.8) +
+    facet_wrap(~ Variable, scales = "free") +
+    labs(title = paste("Porcentaje de variables cualitativas -", method), x = "Categoría", y = "Porcentaje") + 
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  # Agregar el gráfico a la lista de gráficos de porcentaje
+  plots_porcentaje[[method]] <- plot_porcentaje
+}
+
+# Mostrar los gráficos
+plots_frecuencia
+plots_porcentaje
+
+```
+
+```{r}
+plot_combined <- function(variable) {
+  # Obtener los nombres de los métodos disponibles
+  available_methods <- names(discretizedQB_list)
+  
+  # Crear el espacio para la figura con subplots para los histogramas
+  par(mfrow = c(length(available_methods), 1), mar = c(4, 4, 2, 2))  # N filas + 1 para el gráfico de dispersión, 1 columna
+  
+  # Iterar sobre cada método y generar el histograma correspondiente
+  for (method in available_methods) {
+    # Discretizar la variable
+    variable_discrete <- discretizedQB_list[[method]][[variable]]
+    
+    # Obtener el número de niveles de la variable factor
+    num_levels <- length(levels(variable_discrete))
+    
+    # Calcular los puntos de corte
+    cut_points <- discretize(QB[[variable]], method = method, breaks = num_levels, onlycuts = TRUE)
+    
+    # Crear el histograma
+    hist(QB[[variable]], breaks = 40, main = paste("Discretización -", method, "-", variable), xlab = "Valor", ylab = "Frecuencia", col = "lightblue")
+    
+    # Agregar líneas verticales para mostrar los puntos de corte
+    abline(v = cut_points, col = "red")
+  }
+  
+  # Restaurar el diseño original de la figura
+  par(mfrow = c(1, 1))  # Volver a 1 fila, 1 columna
+  
+  # Crear el espacio para la figura con subplots para los gráficos de dispersión
+  par(mfrow = c(length(available_methods), 1), mar = c(4, 4, 2, 2))  # N filas, 1 columna
+  
+  # Obtener los colores para los distintos niveles de discretización
+  discrete_colors <- rainbow(length(discretizedQB_list$interval))
+  
+  # Iterar sobre cada método y generar el gráfico de dispersión correspondiente
+  for (i in 1:length(available_methods)) {
+    method <- available_methods[i]
+    
+    # Discretizar la variable
+    variable_discrete <- discretizedQB_list[[method]][[variable]]
+    
+    # Generar el gráfico de dispersión
+    plot_title <- paste("Scatter-plot -", method, "-", variable)
+    plot(as.numeric(QB[[variable]]), pch = "o", col = as.numeric(discrete_colors), xlab = "Índice", ylab = "Valor", main = plot_title)
+    
+    # Agregar puntos adicionales para cada método
+    points(as.numeric(QB[[variable]]), pch = "o", col = discrete_colors)
+  }
+  
+}
+
+# Ejemplo de llamada a la función
+plot_combined("Management.Risk")
+
+
+```
+
+```{r}
+for (variable in columns_to_discretize) {
+  for (method in names(discretizedQB_list)) {
+    plot_combined(variable, method)
+  }
+}
 ```
 
 [Describe, al menos, 2 conclusiones.]{.underline}
 
 **\>\>\>\<\<\<Conclusiones del análisis univariante...\>\>\>\<\<\<**
+
+- comentar diferencias entre tipos de métodos al final
+
+
+
+
+
+
 
 ### Análisis bivariante de las variables Cualitativas
 
