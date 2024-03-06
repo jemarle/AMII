@@ -26,7 +26,7 @@ if (!require(pacman)) {
   install.packages("pacman")
   library(pacman)
 }
-pacman::p_load(readr, stringr, tidyr, dplyr, readxl, ggplot2, forcats, kableExtra, greekLetters, fitdistrplus, OneR, caret, OneR, arules, arulesCBA, arulesViz, Rgraphviz)
+pacman::p_load(readr, stringr, tidyr, dplyr, readxl, ggplot2, forcats, kableExtra, greekLetters, fitdistrplus, OneR, caret, OneR, arules, arulesCBA, arulesViz, Rgraphviz, DescTools)
 ```
 
 ## Qualitative Bankruptcy Data Set
@@ -52,6 +52,22 @@ colnames(QB) <- make.names(c("Industrial Risk", "Management Risk",
 str(QB)
 head(QB)
 ```
+En primer lugar, para poner un poco de contexto de lo que estamos haciendo, se explica un poco las variables que aparecen en el conjunto de datos.
+
+- `Industrial Risk` (Riesgo industrial). Se refiere al riesgo asociado con el sector en el que opera la empresa. Ciertos sectores pueden ser más volátiles o estar más expuestos a factores macroeconómicos que otros.
+
+- `Management Risk` (Riesgo de gestión). Este indicador evalúa la calidad de la gestión de la empresa. Se centra en la capacidad de los directivos para tomar decisiones efectivas, implementar estrategias exitosas y gestionar eficazmente los recursos.
+
+- `Financial Flexibility` (Flexibilidad financiera). Se refiere a la capacidad de la empresa para manejar cambios en su estructura financiera y cumplir con sus obligaciones financieras, especialmente en situaciones adversas como una disminución de ingresos o aumento de costos.
+
+- `Credibility` (Credibilidad). Evalúa la reputación de empresa en el mercado. Una buena reputación puede influir en la capacidad de la empresa para atraer inversionistas, clientes y socios, mientras que una mala reputación puede tener el efecto opuesto.
+
+- `Competitiveness` (Competitividad). Se refiere a la capacidad de la empresa para competir con éxito en su mercado objetivo. Puede incluir factores como la calidad de productos o servicios, eficiencia operativa, innovación, capacidad de adaptación a condición de mercado, etc.
+
+- `Operating Risk` (Riesgo operativo). Este evalúa el riesgo asociado con las operaciones comerciales diarias de la empresa. Esto puede incluir riesgos relacionados con la cadena de suministro, la calidad del producto, seguridad laboral, entre otros.
+
+Estas variables, en resumen, nos proporcionan una visión holística de la salud financiera y operativa de una empresa, lo que permite a los analistas y inversores evaluar su riesgo de bancarrota (relacionado con `Bankruptcy`).
+
 
 Sabiendo que las variables numéricas representan un valor entre 0 y 10 para indicar la valoración del experto de cada variable, prueba a discretizar las variables numéricas en 3 factores ordenados **QB** de ***manera no supervisada*** para estimar la clase (`Bankruptcy`). La etiqueta asociada a valores bajos será "N" de valoración "negative", la etiqueta de valores altos será "P" de "positive" y el resto corresponderá a etiqueta "A" de "average".
 
@@ -127,7 +143,7 @@ Realiza un estudio del conjunto discretizado para determinar si es apropiado par
 
 ### Análisis univariante de las variables Cualitativas
 
-Obtén la descripción de las variables [incluida la clase]{.underline}. Al menos, se debe obtener la tabla de frecuencias y un gráfico para mostrar la frecuencias.
+`Obtén la descripción de las variables [incluida la clase]{.underline}. Al menos, se debe obtener la tabla de frecuencias y un gráfico para mostrar la frecuencias.`
 
 ```{r tabla_frecuencias}
 obtener_tabla_frecuencias <- function(columna) {
@@ -184,12 +200,16 @@ for (method in names(tablas_frecuencias)) {
 plots_frecuencia
 plots_porcentaje
 ```
+Observamos cómo las frecuencias dependen en medida de cómo se ejecuta la discretización de las variables numéricas a categóricas con la función `discretize()` y sus diferentes `method`. Aparece una mayor diferencia en el método `frequency`, en el que las variables anteriormente numéricas (todas menos `Bankruptcy`) pasan a tener todas las categorías con igualdad de frecuencia.
 
-```{r}
+Por otra parte, los métodos `interval` y `cluster` son muy similares en este caso.
+
+
+```{r plot_diferencia_discretize }
 plot_combined <- function(variable) {
   available_methods <- names(discretizedQB_list)
   par(mfrow = c(length(available_methods), 1), mar = c(4, 4, 2, 2))  
-  
+  # AÑADIR CAPTION A FIGURAS.
 
   for (method in available_methods) {
 
@@ -202,47 +222,22 @@ plot_combined <- function(variable) {
     hist(QB[[variable]], breaks = 40, main = paste("Discretización -", method, "-", variable), xlab = "Valor", ylab = "Frecuencia", col = "lightblue")
     abline(v = cut_points, col = "red")
   }
-  
-
-  par(mfrow = c(1, 1))  
-  
-
-  par(mfrow = c(length(available_methods), 1), mar = c(4, 4, 2, 2))  
-  
-
-  for (i in 1:length(available_methods)) {
-    method <- available_methods[i]
-    
-
-    variable_discrete <- discretizedQB_list[[method]][[variable]]
-    
-
-    plot_title <- paste("Scatter-plot -", method, "-", variable)
-    plot(as.numeric(QB[[variable]]), pch = "o", col = as.numeric(variable_discrete), xlab = "Índice", ylab = "Valor", main = plot_title)
-    
-
-    legend("topright", legend = levels(variable_discrete), fill = 1:length(levels(variable_discrete)))
-  }
 }
 ```
 
-```{r}
+```{r llamada_plots_diferencia}
 for (variable in columns_to_discretize) {
     plot_combined(variable)
   }
-
 ```
 
-[Describe, al menos, 2 conclusiones.]{.underline}
+En estos gráficos puede apreciarse lo que se comentó anteriormente de las diferencias entre los distintos métodos para discretizar.
 
 **\>\>\>\<\<\<Conclusiones del análisis univariante...\>\>\>\<\<\<**
 
-- comentar diferencias entre tipos de métodos al final
+Observamos que la discretización por `cluster` y `interval` ha cogido como valor `N` (Negative) aproximadamente entre 0 y 3. La categoría `A` (Average) queda entre 3 y 7, mientras que la de `P` (Positive) de 7 a 10.
 
-
-
-
-
+Hemos visto también que en estas dos formas de discretización se asignan más valores de `N` que de las otras categorías para todas las variables del conjunto de datos. Esto nos puede llevar a pensar que ha habido cierta tendencia a valorar de manera algo estricta las cosas.
 
 
 ### Análisis bivariante de las variables Cualitativas
@@ -252,8 +247,39 @@ Obtén la relación entre las variables [y la clase]{.underline} (ej. matrices d
 *Nota: La función PairApply de la librería DescTools permite calcular estadísticos para todos los pares. La función PlotCorr permite representar los resultados de PairApply.*
 
 ```{r}
-#solucion
+extract_chi2 <- function(x, y) {
+  chi2_result <- chisq.test(table(x, y))$statistic
+  return(chi2_result)
+}
 
+chi2_matrix <- PairApply(discretizedQB_list$interval, 
+                         FUN = extract_chi2)
+
+cramerV_matrix <- PairApply(discretizedQB_list$interval, FUN = CramerV)
+
+chi2_matrix
+cramerV_matrix
+```
+```{r}
+PlotCorr(chi2_matrix, main = "Matriz de Chi-Cuadrado")
+PlotCorr(cramerV_matrix)
+```
+```{r}
+# Lista para almacenar las matrices de contingencia
+contingency_matrices <- list()
+
+# Iterar sobre las variables en discretizedQB_list$interval
+for (variable in columns_to_discretize) {
+  # Construir la fórmula de manera dinámica
+  formula <- as.formula(paste(" ~ Bankruptcy + ", variable))
+  
+  # Calcular la matriz de contingencia utilizando xtabs
+  contingency_matrices[[variable]] <- xtabs(formula, data = discretizedQB_list$interval)
+}
+
+names(contingency_matrices) <- NULL
+
+contingency_matrices
 ```
 
 Contrasta los resultados con los gráficos de Mosaico de los casos más relevantes.
