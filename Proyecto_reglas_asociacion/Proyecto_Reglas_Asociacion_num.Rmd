@@ -3,6 +3,8 @@ title: "Proyecto: Reglas de Asociación (Aprendizaje Máquina II)"
 author: "Carlos Sánchez Polo y Jesús Martínez Leal"
 date: "`r Sys.Date()`"
 output:
+  html_notebook:
+    toc: yes
   html_document:
     echo: yes
     number_sections: no
@@ -15,7 +17,7 @@ subtitle: Máster Ciencia de Datos UV
 # Configuración general de chunks
 library(knitr)
 options(width = 100)
-knitr::opts_chunk$set(echo = T, message = T, error = F, warning = F, comment = NA, dpi = 100, tidy = T, cache.path = '.cache/', fig.path = './figure/', include = T)
+knitr::opts_chunk$set(echo = F, message = T, error = F, warning = F, comment = NA, dpi = 100, tidy = T, cache.path = '.cache/', fig.path = './figure/', include = F)
 ```
 
 Como es habitual, cargamos las librerías que necesitamos al inicio del documento.
@@ -26,7 +28,7 @@ if (!require(pacman)) {
   install.packages("pacman")
   library(pacman)
 }
-pacman::p_load(readr, stringr, tidyr, dplyr, readxl, ggplot2, forcats, kableExtra, greekLetters, fitdistrplus, OneR, caret, OneR, arules, arulesCBA, arulesViz, Rgraphviz, DescTools)
+pacman::p_load(readr, stringr, tidyr, dplyr, readxl, ggplot2, forcats, kableExtra, greekLetters, fitdistrplus, OneR, caret, OneR, arules, arulesCBA, arulesViz, Rgraphviz, DescTools, vcd)
 ```
 
 ## Qualitative Bankruptcy Data Set
@@ -48,7 +50,7 @@ colnames(QB) <- make.names(c("Industrial Risk", "Management Risk",
                                "Bankruptcy"))
 ```
 
-```{r visualizacion_QB}
+```{r visualizacion_QB, include = T}
 str(QB)
 head(QB)
 ```
@@ -115,7 +117,7 @@ head(discretizedQB_list$cluster)
 
 Asegúrate que toda las variables son factores de 3 niveles y ORDENADOS que respetan N\<A\<P. La clase `Bankruptcy` debe tener como primera etiqueta "B".
 
-```{r conversion_factores_ordenados}
+```{r conversion_factores_ordenados, include = T}
 for (method in methods) {
   names_list <- setNames(rep(list(discretization_configs[[method]]), length(columns_to_discretize)), columns_to_discretize)
   
@@ -164,7 +166,7 @@ for (method_name in names(discretizedQB_list)) {
 str(tablas_frecuencias)
 ```
 
-```{r grafico_frecuencias_porcentajes}
+```{r grafico_frecuencias_porcentajes, include = T}
 plots_frecuencia <- list()
 plots_porcentaje <- list()
 
@@ -186,20 +188,21 @@ for (method in names(tablas_frecuencias)) {
   plots_frecuencia[[method]] <- plot_frecuencia
   
   # Gráfico de porcentajes
-  plot_porcentaje <- ggplot(tabla_total, aes(x = Categoria, y = Porcentaje, fill = Categoria)) +
-    geom_bar(stat = "identity", position = position_dodge(width = 0.9), width = 0.8) +
-    facet_wrap(~ Variable, scales = "free") +
-    labs(title = paste("Porcentaje de variables cualitativas -", method), x = "Categoría", y = "Porcentaje") + 
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  #plot_porcentaje <- ggplot(tabla_total, aes(x = Categoria, y = Porcentaje, fill = Categoria)) +
+  #  geom_bar(stat = "identity", position = position_dodge(width = 0.9), width = 0.8) +
+  #  facet_wrap(~ Variable, scales = "free") +
+  #  labs(title = paste("Porcentaje de variables cualitativas -", method), x = "Categoría", y = "Porcentaje") + 
+  #  theme_minimal() +
+  #  theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
 
-  plots_porcentaje[[method]] <- plot_porcentaje
+  #plots_porcentaje[[method]] <- plot_porcentaje
 }
 
 plots_frecuencia
-plots_porcentaje
+#plots_porcentaje
 ```
+
 Observamos cómo las frecuencias dependen en medida de cómo se ejecuta la discretización de las variables numéricas a categóricas con la función `discretize()` y sus diferentes `method`. Aparece una mayor diferencia en el método `frequency`, en el que las variables anteriormente numéricas (todas menos `Bankruptcy`) pasan a tener todas las categorías con igualdad de frecuencia.
 
 Por otra parte, los métodos `interval` y `cluster` son muy similares en este caso.
@@ -225,7 +228,7 @@ plot_combined <- function(variable) {
 }
 ```
 
-```{r llamada_plots_diferencia}
+```{r llamada_plots_diferencia, include = T}
 for (variable in columns_to_discretize) {
     plot_combined(variable)
   }
@@ -246,102 +249,291 @@ Obtén la relación entre las variables [y la clase]{.underline} (ej. matrices d
 
 *Nota: La función PairApply de la librería DescTools permite calcular estadísticos para todos los pares. La función PlotCorr permite representar los resultados de PairApply.*
 
-```{r}
-extract_chi2 <- function(x, y) {
-  chi2_result <- chisq.test(table(x, y))$statistic
-  return(chi2_result)
+Representamos la matriz de valores de coeficientes de Cramer, medida que nos informa sobre la asociación entre variables categóricas. Es una versión normalizada del estadístico de chi-cuadrado, oscilando su valor entre 0 y 1.
+
+```{r CramersMatrices, include = T}
+cramerV_matrix <- list()
+
+for (method in methods) {
+  cramerV_matrix[[method]] <- PairApply(discretizedQB_list[[method]], FUN = CramerV)
 }
 
-chi2_matrix <- PairApply(discretizedQB_list$interval, 
-                         FUN = extract_chi2)
-
-cramerV_matrix <- PairApply(discretizedQB_list$interval, FUN = CramerV)
-
-chi2_matrix
 cramerV_matrix
 ```
-```{r}
-PlotCorr(chi2_matrix, main = "Matriz de Chi-Cuadrado")
-PlotCorr(cramerV_matrix)
-```
-```{r}
-# Lista para almacenar las matrices de contingencia
-contingency_matrices <- list()
-
-# Iterar sobre las variables en discretizedQB_list$interval
-for (variable in columns_to_discretize) {
-  # Construir la fórmula de manera dinámica
-  formula <- as.formula(paste(" ~ Bankruptcy + ", variable))
-  
-  # Calcular la matriz de contingencia utilizando xtabs
-  contingency_matrices[[variable]] <- xtabs(formula, data = discretizedQB_list$interval)
+```{r plotCorrMatrix, include = T}
+for (method in methods){
+  PlotCorr(cramerV_matrix[[method]], main = "")
+  title(main = paste("PlotCorr para el método", method), line = -18)
 }
 
-names(contingency_matrices) <- NULL
+```
+
+La última columna corresponde a los valores que tienen las distintas variables predictoras con la variable `Bankruptcy`. Un valor de CramerV superior a 0.7 está catalogado como una fuerte relación entre variables categóricas, implicando que `Financial.Flexibility`, `Credibility` y, sobre todo `Competitiveness`, muestran una clara dependencia sobre el valor obtenido para `Bankruptcy`.
+
+Se muestran a continuación las matrices de contingencia entre las diferentes variables respecto a `Bankruptcy`.
+
+```{r matrices_contingencia, include = T}
+contingency_matrices <- list()
+
+for (method in methods){
+  for (variable in columns_to_discretize) {
+    formula <- as.formula(paste(" ~ Bankruptcy + ", variable))
+    contingency_matrices[[method]][[variable]] <- xtabs(formula, data = discretizedQB_list[[method]])
+}
+
+names(contingency_matrices[[method]]) <- NULL
+}
 
 contingency_matrices
 ```
 
-Contrasta los resultados con los gráficos de Mosaico de los casos más relevantes.
+Observamos que en los casos mencionados anteriormente concuerdan con lo que se dijo de una alta relación. Es fácil ver que una `Financial.Flexibility` negativa (`N`) suele llevar a tener bancarrota (`Bankruptcy` en `B`). Por el contrario, una positiva tiene fuerte relación a lo contrario. De manera similar pasa con `Credibility` y `Competitiveness`. 
 
-```{r}
-#solucion
 
+Contrastaremos los resultados con los gráficos de Mosaico de los casos más relevantes. Por cuestiones de no saturar con demasiados plots, se muestra lo que ocurre con el método de `cluster` (similar a lo que ocurre con `interval`).
+
+```{r mosaic_plots, include = T}
+interest_var <- c("Financial.Flexibility", "Credibility", "Competitiveness")
+methods_plot <- c("cluster")
+
+for (method in methods_plot){
+  for (variable in interest_var){
+    formula <- as.formula(paste("~", "Bankruptcy", "+", variable))
+    mosaic(formula = formula, data = discretizedQB_list[[method]], shade = TRUE, main = paste("Método de", method))
+    assoc(formula = formula, data = discretizedQB_list[[method]], shade = TRUE, main = paste("Método de", method))
+  }
+}
 ```
+Puede verse claramente lo que se comentaba anteriormente. En estas 3 variables hay cierta predisposición a que no haya bancarrota si se tiene un resultado `Average` o `Positive` (sobre todo). Justamente con `Negative` hay predisposición a lo contrario, entrar en bancarrota.
 
-[Describe, al menos, 2 conclusiones:]{.underline}
-
-**\>\>\>\<\<\<Conclusiones del análisis bivariante...\>\>\>\<\<\<**
 
 ## Reglas de Asociación
 
 Transforma el `data.frame` en *transactions* con el nombre `QBt` y analízalas con `summary`.
 
-```{r}
-#solution
+```{r transactions_create, include = T}
+QBt <- list()
 
+for (method in methods){
+  QBt[[method]] <- transactions(discretizedQB_list[[method]])
+}
+
+summary(QBt$cluster)
+
+itemInfo(QBt$cluster)
+itemLabels(QBt$cluster)
+```
+Como puede verse, tenemos un total de 250 filas / itemsets, así como 20 columnas / items que representan todas las posibilidades de variables con sus posibles niveles. 
+
+Los 5 items más frecuentes (con nivel correspondiente) se muestran a continuación.
+
+```{r frequencyPlot, include = T}
+itemFrequencyPlot(QBt$cluster, topN = 5)
+```
+Una tabla de contingencia entre todos los pares de variables (combinación de pares de *items*) se muestra a continuación:
+
+```{r crosstable, include = T}
+crossTable(QBt$cluster)
 ```
 
-Obtén las reglas de asociación que tienen, al menos, un `support` del 10% y una `confidence` del 100%. ¿Cuántas reglas se obtienen?
+```{r crossTable_top_vars}
+table_trans <- crossTable(QBt$cluster, sort = TRUE)
+table_trans[1:5, 1:5]
+```
+Vemos aquí que el número más elevado se obtiene entre la combinación de `Bankruptcy = B` y `Financial.Flexibility = N`.
 
-```{r}
-#solution
 
+`Obtén las reglas de asociación que tienen, al menos, un `support` del 10% y una `confidence` del 100%. ¿Cuántas reglas se obtienen?`
+
+Utilizamos la función `apriori()` del paquete `arules` para este cometido.
+
+```{r custom_rule_supp_conf}
+support <- 0.1
+confidence <- 1
+
+rules <- apriori(data = QBt$cluster, parameter = list(support = support, confidence = confidence, target = "rules"))
+summary(rules)
+```
+Se han obtenido un total de 88 reglas, tal y como se muestra arriba.
+
+```{r rules_items}
+inspect(items(rules))
+```
+Las reglas pueden representarse en un grafo interactivo:
+
+```{r grafo_rules, include = T}
+plot(rules, method = "graph", engine = "htmlwidget")
 ```
 
-Muestra las 3 primeras reglas ordenadas por `lift`.
+Resulta obvio de ver que en el grafo tenemos 2 zonas bien diferenciadas: por una la que se relaciona con `Bankruptcy = B` y por otra la que se relaciona con `Bankruptcy = NB`.
 
-```{r}
-#solution
+`Muestra las 3 primeras reglas ordenadas por `lift`.`
 
+```{r sort_rules_lift}
+inspect(head(arules::sort(rules, by = "lift"), n = 3))
 ```
 
-Obtén las reglas de asociación que tengan como **ANTECEDENTE** `Bankruptcy=B` . Reduce el número de reglas con las condiciones `lift>2 & count>50`. ¿Observas algún patrón/curiosidad en estas reglas?
+`Obtén las reglas de asociación que tengan como **ANTECEDENTE** `Bankruptcy=B` . Reduce el número de reglas con las condiciones `lift>2 & count>50`. ¿Observas algún patrón/curiosidad en estas reglas?`
 
 *Nota: Representar las reglas ayuda en la interpretación.*
 
-```{r}
-#solucion
+Las reglas con ese tipo de condiciones se muestran a continuación:
 
+```{r rules_lhs_bankruptcy, include = T}
+inspect(subset(rules, subset = lhs %pin% c("Bankruptcy=B") & lift > 2 & count > 50 ))
 ```
 
-Obtén las reglas de asociación en las que **no** aparezca la variable`Bankruptcy` (ni en el antecedente ni en la consecuencia). Representa las reglas. ¿Para qué sirven estas reglas/grafo si no aparece la variable objetivo?
+Podemos representar estas reglas haciendo uso de `plot()`.
 
-```{r}
-#solucion
+```{r rules_filter_plot, include = T}
+rules_filtered <- subset(rules, subset = lhs %pin% c("Bankruptcy=B") & lift > 2 & count > 50 )
+rules_sort <- arules::sort(rules_filtered, by = "support")
 
+plot(rules_sort, measure = c("support", "lift"), shading = "count", engine = "htmlwidget")
 ```
+
+
+```{r rules_sort_plot, include = T}
+plot(rules_sort, method = "graph", engine = "htmlwidget" )
+```
+
+
+`Obtén las reglas de asociación en las que **no** aparezca la variable`Bankruptcy` (ni en el antecedente ni en la consecuencia). Representa las reglas. ¿Para qué sirven estas reglas/grafo si no aparece la variable objetivo?`
+
+Se utiliza un `subset()` con lo obtenido anteriormente para que no aparezca dicha variable.
+
+```{r noBankrupcty_rules, include = T}
+itemLabels_filter <- setdiff(itemLabels(rules), c("Bankruptcy=B", "Bankruptcy=NB")) # hallar conjunto diferencia
+
+rules_no_bank <- subset(rules, subset = (lhs %oin% itemLabels_filter) & (rhs %oin% itemLabels_filter)) # básicamente exigimos que esté en ese subconjunto de lhs y rhs
+summary(rules_no_bank)
+
+inspect(rules_no_bank)
+```
+
+Pasa a graficarse a continuación en modo de grafo lo obtenido:
+
+```{r graph_rules_no_bank, include = T}
+plot(rules_no_bank, method = "graph", engine = "htmlwidget")
+```
+
+Las reglas de asociación, incluso cuando no incluyen la variable objetivo, pueden ser valiosas para comprender relaciones entre otras variables en el conjunto de datos.
+Destaca aquí por ejemplo la regla de `{Financial.Flexibility=N, Credibility=N, Operating.Risk=N} = > 	{Competitiveness=N}`.
+
+La regla sugiere que cuando una empresa afronta dificultades financieras, falta de credibilidad y alto riesgo operativo, es probable que la competitividad se vea afectada negativamente.
+
+
 
 ## Predicción con reglas de asociación
 
 Desarrolla un modelo de clasificación basado en reglas de asociación para estimar la Bancarrota. Comprueba la bondad del modelo (sensibilidad y especificidad) dividiendo el conjunto de datos en Entrenamiento 80% y Test 20%. Utiliza la función `createDataPartition` y `confusionMatrix` del paquete `caret`.
 
-```{r}
+```{r fixed_seed}
 set.seed(666)
-#solucion
-
 ```
 
+Dividimos nuestro conjunto de datos en train y test con una proporción de 80% - 20%, respectivamente.
+
+```{r train_and_test}
+trainIndex <- createDataPartition(discretizedQB_list$cluster$Bankruptcy, p = 0.8, times = 1, list = FALSE)
+
+
+trainData <- discretizedQB_list$cluster[trainIndex, ]
+testData <- discretizedQB_list$cluster[-trainIndex, ]
+```
+
+Puede comprobarse que la proporción de clases en train y test es prácticamente la misma:
+
+```{r prop_train_test}
+pTrain <- sum(trainData$Bankruptcy == "B") / sum(trainData$Bankruptcy == "NB")
+pTest <- sum(testData$Bankruptcy == "B") / sum(testData$Bankruptcy == "NB")
+
+pTrain
+pTest
+```
+
+### OneR
+
+Veamos primero lo que nos ofrece el modelo de `OneR. `OneR` es un algoritmo de clasificación simple, pero preciso, que genera una regla para cada predictor en los datos, y luego selecciona la regla con el error total más pequeño como su "regla única".
+
+```{r oner_model}
+modelOneR <- OneR(formula =  Bankruptcy ~ ., data = trainData)
+```
+
+```{r summary_oneR, include = T}
+summary(modelOneR)
+```
+Vemos que se obtiene una `accuracy` del 98% con un modelo tan sencillo de regla única, lo cual es bastante sorprendente. El p-valor tan bajo indica que hay una asociación significativa entre las variables de `Competitiveness` y `Bankruptcy`.
+
+Evaluaremos primero este modelo sobre los propios datos de Training:
+
+```{r oneR_train_evaluate, include = T}
+predict_bank_train <- predict(modelOneR, trainData)
+matrix_oneR_train <- confusionMatrix(predict_bank_train, trainData$Bankruptcy)
+
+matrix_oneR_train
+```
+La sensibilidad (`Sensivity`) representa la proporción de positivos reales que se clasificaron correctamente como positivos, mientras que la especificidad (`Specifity`) representa la proporción de negativos reales que se clasificaron correctamente como negativos.
+
+```{r oneR_test_evaluate, include = T}
+predict_bank_test <- predict(modelOneR, testData)
+matrix_oneR_test <- confusionMatrix(predict_bank_test, testData$Bankruptcy)
+
+matrix_oneR_test
+```
+En el conjunto de testing se obtuvo un `accuracy` de 1 para esta partición de los datos, si bien es cierto que el intervalo de confianza del 95% de esta va hasta 0.9275 en la cota inferior.
+
+### CBA
+
+Las siglas de `CBA` responden a *Classification Based on Associations*.
+
+En CBA, se extraen reglas de asociación a partir de los datos y luego se utilizan estas reglas para clasificar nuevas instancias. Estas reglas de asociación pueden proporcionar información sobre cómo las variables predictoras están relacionadas entre sí y con la variable objetivo.
+
+En el proceso general se tiene:
+
+- Extracción de reglas de asociación: con algoritmos como APRIORI.
+- Generación de reglas de clasificación.
+- Clasificación de nuevas instancias.
+
+
+Pasemos a aplicar el modelo con un `support = 0.2` y `confidence = 1`.
+
+```{r modelCBA}
+modelCBA <- CBA(Bankruptcy ~ ., data = trainData, support = 0.2, confidence = 1, balanceSupport = TRUE, pruning = "M1")
+summary(modelCBA)
+```
+Pasamos a inspeccionar las reglas de este:
+
+```{r rules_inspect, include = T}
+inspect(arules::sort(modelCBA$rules, by = "lift"))
+```
+
+```{r vis_reglas_cba, include = T}
+plot(modelCBA$rules, measure = c("support", "lift"), shading = "confidence", engine = "htmlwidget")
+plot(modelCBA$rules, method = "graph", engine = "htmlwidget")
+```
+
+Evaluamos el modelo CBA sobre los conjuntos de entrenamiento y test:
+
+```{r evaluate_train_cba, include = T}
+predict_bank_train_CBA <- predict(modelCBA, trainData)
+matrix_cba_train <- confusionMatrix(predict_bank_train_CBA, trainData$Bankruptcy)
+matrix_cba_train
+```
+
+Obtenemos en el propio conjunto de training un `accuracy` de 1, lo que resulta algo mejor que en el modelo de regla única del OneR.
+
+```{r evaluate_test_cba, include = T}
+predict_bank_test_CBA <- predict(modelCBA, testData)
+matrix_cba_test <- confusionMatrix(predict_bank_test_CBA, testData$Bankruptcy)
+matrix_cba_test
+```
+
+En el conjunto de test también se obtiene un `accuracy` de 1.
+
+```{r}
+plot(modelCBA$rules, method = "graph", engine = "graphviz")
+```
 [Reflexiones sobre el modelo basado en reglas:]{.underline}
 
 **\>\>\>\<\<\<Conclusiones del modelo basado en reglas...\>\>\>\<\<\<**
