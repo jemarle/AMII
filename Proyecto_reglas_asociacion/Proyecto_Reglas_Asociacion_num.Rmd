@@ -3,12 +3,12 @@ title: "Proyecto: Reglas de Asociación (Aprendizaje Máquina II)"
 author: "Carlos Sánchez Polo y Jesús Martínez Leal"
 date: "`r Sys.Date()`"
 output:
-  html_notebook:
-    toc: yes
   html_document:
     echo: yes
     number_sections: no
     theme: readable
+    toc: yes
+  html_notebook:
     toc: yes
 subtitle: Máster Ciencia de Datos UV
 ---
@@ -209,30 +209,26 @@ Por otra parte, los métodos `interval` y `cluster` son muy similares en este ca
 
 
 ```{r plot_diferencia_discretize }
-plot_combined <- function(variable) {
-  available_methods <- names(discretizedQB_list)
-  par(mfrow = c(length(available_methods), 1), mar = c(4, 4, 2, 2))  
-  # AÑADIR CAPTION A FIGURAS.
 
-  for (method in available_methods) {
+par(mfrow = c(2, 3), mar = c(4, 4, 2, 2))  
 
+
+for (i in 1:length(columns_to_discretize)) {
+  variable <- columns_to_discretize[i]
+  hist(QB[[variable]], breaks = 40, main = "", xlab = variable, ylab = "Frecuencia", col = "lightgray")
+  for (j in 1:length(discretizedQB_list)) { 
+    method <- names(discretizedQB_list)[j]
     variable_discrete <- discretizedQB_list[[method]][[variable]]
-    
-
     num_levels <- length(levels(variable_discrete))
-    
     cut_points <- discretize(QB[[variable]], method = method, breaks = num_levels, onlycuts = TRUE)
-    hist(QB[[variable]], breaks = 40, main = paste("Discretización -", method, "-", variable), xlab = "Valor", ylab = "Frecuencia", col = "lightblue")
-    abline(v = cut_points, col = "red")
+    abline(v = cut_points, col = j + 1)  
   }
 }
+
+
+legend("topright", legend = names(discretizedQB_list), fill = 2:(length(discretizedQB_list) + 1))
 ```
 
-```{r llamada_plots_diferencia, include = T}
-for (variable in columns_to_discretize) {
-    plot_combined(variable)
-  }
-```
 
 En estos gráficos puede apreciarse lo que se comentó anteriormente de las diferencias entre los distintos métodos para discretizar.
 
@@ -263,7 +259,7 @@ cramerV_matrix
 ```{r plotCorrMatrix, include = T}
 for (method in methods){
   PlotCorr(cramerV_matrix[[method]], main = "")
-  title(main = paste("PlotCorr para el método", method), line = -18)
+  title(main = paste("PlotCorr para el método", method), line = -20)
 }
 
 ```
