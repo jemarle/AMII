@@ -172,18 +172,28 @@ Recupera la distribución de probabilidad CONJUNTA de TODAS las variables del pr
 
 ```{r p_joint, include = T}
 p_joint <- querygrain(jt, type = "joint")
-ftable(p_joint)
+table_joint <- ftable(p_joint)
+table_joint
 ```
+```{r max_joint, include = T}
+max_value_index <- which.max(table_joint)
+max_value <- max(table_joint)
+
+print(paste("El máximo valor de la tabla de probabilidad conjunta es", max_value, ", hallándose en la fila", max_value_index))
+```
+Un rápido vistazo nos hace ver que esto se da con: $P(A = o, T = a2, M = h, SP = yes, B = yes)$.
 
 
 ## Razonamiento con Evidencias
 
 Determina la probabilidad de la evidencia E={A=n,T=a2,M=l,SP=yes,B=yes}. Interpreta el resultado. *Nota: no es probabilidad marginal.*
 
-```{r}
+```{r evidence_prob, include = T}
+evidence <- setEvidence(jt, evidence = list(A = "n", T = "a2", M = "l", SP = "yes", B = "yes"))
 
-
+pEvidence(evidence)
 ```
+Esta corresponde a la probabilidad de la distribución conjunta dados esos valores particulares.
 
 Determina cómo se modifica la probabilidad de cambiar los frenos, $B=yes$, si sabemos que el vehículo es viejo, $A=o$. ¿Aumenta o disminuye? ¿(según las diapositivas de clase) es razonamiento evidencial o causal?
 
