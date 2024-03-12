@@ -17,31 +17,54 @@ subtitle: Máster Ciencia de Datos UV
 # Configuración general de chunks
 library(knitr)
 options(width = 100)
-knitr::opts_chunk$set(echo = F, message = T, error = F, warning = F, comment = NA, dpi = 100, tidy = T, cache.path = '.cache/', fig.path = './figure/', include = F)
+knitr::opts_chunk$set(echo = F, message = T, error = F, warning = F, comment = NA, dpi = 100, tidy = T, cache.path = '.cache/', fig.path = './figure/', include = F, fig.pos = "H", fig.align = "center")
 ```
 
 Como es habitual, cargamos las librerías que necesitamos al inicio del documento.
 
-```{r librerias, message = T, include = T, echo = T}
+```{r librerias, message = T, include = F, echo = F}
 # Carga de librerías necesarias con pacman
 if (!require(pacman)) {
   install.packages("pacman")
   library(pacman)
 }
-pacman::p_load(readr, stringr, tidyr, dplyr, readxl, ggplot2, forcats, kableExtra, greekLetters, fitdistrplus, OneR, caret, OneR, arules, arulesCBA, arulesViz, Rgraphviz, DescTools, vcd)
+pacman::p_load(float, readr, stringr, tidyr, dplyr, readxl, ggplot2, forcats, kableExtra, greekLetters, fitdistrplus, OneR, caret, OneR, arules, arulesCBA, arulesViz, Rgraphviz, DescTools, vcd)
+```
+```{r spetial_func_capFig, echo = F}
+#Determine the output format of the document
+outputFormat   = opts_knit$get("rmarkdown.pandoc.to")
+
+#Figure and Table Caption Numbering, for HTML do it manually
+capTabNo = 1; capFigNo = 1;
+
+#Function to add the Table Number
+capTab = function(x){
+  if(outputFormat == 'html'){
+    x = paste0("Table ",capTabNo,". ",x)
+    capTabNo <<- capTabNo + 1
+  }; x
+}
+
+#Function to add the Figure Number
+capFig = function(x, y){
+  if(outputFormat == 'html'){
+    x = paste0("Figure ",capFigNo,". ",x, "\\label{fig:", y, "}")
+    capFigNo <<- capFigNo + 1
+  }; x
+}
 ```
 
 ## Qualitative Bankruptcy Data Set
 
-Utilizaremos UNA VERSIÓN PARECIDA PERO NO IGUAL del conjunto de datos `Qualitative_Bankruptcy Data Set` del repositorio *UCI Machine Learning* para trabajar el estudio de las variables Categóricas/Cualitativas y la bondad de las reglas de Asociación para extraer conocimiento de un conjunto de datos, en este caso, predecir la bancarrota (*Bankruptcy*) en base a parámetros cuantitativos/cualitativos preparados por expertos.
+Utilizaremos una versión parecida del conjunto de datos `Qualitative_Bankruptcy Data Set` del repositorio *UCI Machine Learning* para trabajar el estudio de las variables Categóricas/Cualitativas y la bondad de las reglas de Asociación para extraer conocimiento de un conjunto de datos, en este caso, predecir la bancarrota (*Bankruptcy*) en base a parámetros cuantitativos/cualitativos preparados por expertos.
 
-Cargar el fichero `Qualitative_Bankruptcy.num.txt` y crear el `data.frame` `QB`.
+Cargamos el fichero `Qualitative_Bankruptcy.num.txt` y creamos el `data.frame` `QB`.
 
 ```{r lectura_QB}
 QB <- read.table("./data/Qualitative_Bankruptcy.num.txt", header = FALSE, sep = ",", stringsAsFactors = TRUE)
 ```
 
-Asigna nombres válidos a las columnas del `data.frame` (usa `make.names` para asegurarte que no contiene símbolos raros). Más información en el fichero `Qualitative_Bankruptcy.info.txt`
+Asignamos nombres válidos a las columnas del `data.frame` (`make.names` se usa para asegurarnos que no contiene símbolos raros). Hay más información en el fichero `Qualitative_Bankruptcy.info.txt`
 
 ```{r colnames_QB}
 colnames(QB) <- make.names(c("Industrial Risk", "Management Risk", 
@@ -49,6 +72,8 @@ colnames(QB) <- make.names(c("Industrial Risk", "Management Risk",
                                "Competitiveness", "Operating Risk", 
                                "Bankruptcy"))
 ```
+
+La información sobre este conjunto de datos se muestra a continuación:
 
 ```{r visualizacion_QB, include = T}
 str(QB)
@@ -70,8 +95,11 @@ En primer lugar, para poner un poco de contexto de lo que estamos haciendo, se e
 
 Estas variables, en resumen, nos proporcionan una visión holística de la salud financiera y operativa de una empresa, lo que permite a los analistas y inversores evaluar su riesgo de bancarrota (relacionado con `Bankruptcy`).
 
+Las variables numéricas representan un valor entre 0 y 10 e indican la valoración del experto para cada variable. Discretizaremos estas en 3 factores ordenados **QB** de **manera no supervisada**, con el objetivo de estimar la clase `Bankruptcy`. \
 
-Sabiendo que las variables numéricas representan un valor entre 0 y 10 para indicar la valoración del experto de cada variable, prueba a discretizar las variables numéricas en 3 factores ordenados **QB** de ***manera no supervisada*** para estimar la clase (`Bankruptcy`). La etiqueta asociada a valores bajos será "N" de valoración "negative", la etiqueta de valores altos será "P" de "positive" y el resto corresponderá a etiqueta "A" de "average".
+La etiqueta asociada a valores bajos será `N` (negative), la etiqueta de valores altos será `P` (positive) y el resto corresponderá a la etiqueta `A` (average). \
+
+Se utiliza la función `discretize()` del paquete `arules` con cada método que este nos ofrece (`interval`, `frequency` y `cluster`).
 
 ```{r bin_columns}
 columna_clase <- "Bankruptcy"
@@ -115,7 +143,7 @@ head(discretizedQB_list$frequency)
 head(discretizedQB_list$cluster)
 ```
 
-Asegúrate que toda las variables son factores de 3 niveles y ORDENADOS que respetan N\<A\<P. La clase `Bankruptcy` debe tener como primera etiqueta "B".
+Nos aseguramos que todas las variables son factores de 3 niveles ordenados que además respetan `N` < `A` < `P`. Además, la primera clase de `Bankruptcy` será la de etiqueta `B` (bancarrota).
 
 ```{r conversion_factores_ordenados, include = T}
 for (method in methods) {
@@ -141,11 +169,12 @@ str(discretizedQB_list)
 
 ## Análisis Cualitativo
 
-Realiza un estudio del conjunto discretizado para determinar si es apropiado para resolver el problema (estimar Bankruptcy con el menor número de errores) .
+Realizaremos a continuación un breve estudio del conjunto discretizado para determinar si es apropiado resolver el problema de clasificación correcta de la variable `Bankruptcy`.
 
 ### Análisis univariante de las variables Cualitativas
 
-`Obtén la descripción de las variables [incluida la clase]{.underline}. Al menos, se debe obtener la tabla de frecuencias y un gráfico para mostrar la frecuencias.`
+A continuación, se calculan las tablas de frecuencia correspondientes a cada una de las clases discretizadas anteriormente. Estas se mostrarán de una manera visual con gráficos de barras, haciéndose una diferencia entre los distintos tipos de `method` en el `discretize()`.
+
 
 ```{r tabla_frecuencias}
 obtener_tabla_frecuencias <- function(columna) {
@@ -166,7 +195,7 @@ for (method_name in names(discretizedQB_list)) {
 str(tablas_frecuencias)
 ```
 
-```{r grafico_frecuencias_porcentajes, include = T}
+```{r grafico_frecuencias_porcentajes, include = T, fig.cap = capFig("Frecuencias para las distintas variables con los distintos métodos", y = "grafico_frecuencias_porcentajes")}
 plots_frecuencia <- list()
 plots_porcentaje <- list()
 
@@ -203,12 +232,12 @@ plots_frecuencia
 #plots_porcentaje
 ```
 
-Observamos cómo las frecuencias dependen en medida de cómo se ejecuta la discretización de las variables numéricas a categóricas con la función `discretize()` y sus diferentes `method`. Aparece una mayor diferencia en el método `frequency`, en el que las variables anteriormente numéricas (todas menos `Bankruptcy`) pasan a tener todas las categorías con igualdad de frecuencia.
+Observamos cómo las frecuencias dependen en medida de cómo se ejecuta la discretización de las variables numéricas a categóricas con la función `discretize()` y sus diferentes `method`. Aparece una mayor diferencia en el método `frequency`, en el que las variables anteriormente numéricas (todas menos `Bankruptcy`) pasan a tener todas las categorías con igualdad de frecuencia para cada una de las clases.
 
 Por otra parte, los métodos `interval` y `cluster` son muy similares en este caso.
 
 
-```{r plot_diferencia_discretize }
+```{r plot_diferencia_discretize, include = T, fig.cap = capFig("Diferencias a la hora de discretizar entre los distintos métodos", y = "plot_diferencia_discretize")}
 
 par(mfrow = c(2, 3), mar = c(4, 4, 2, 2))  
 
@@ -229,19 +258,19 @@ for (i in 1:length(columns_to_discretize)) {
 legend("topright", legend = names(discretizedQB_list), fill = 2:(length(discretizedQB_list) + 1))
 ```
 
+En estos gráficos puede apreciarse lo que se comentó anteriormente de las diferencias entre los distintos métodos para discretizar. \
 
-En estos gráficos puede apreciarse lo que se comentó anteriormente de las diferencias entre los distintos métodos para discretizar.
-
-**\>\>\>\<\<\<Conclusiones del análisis univariante...\>\>\>\<\<\<**
-
-Observamos que la discretización por `cluster` y `interval` ha cogido como valor `N` (Negative) aproximadamente entre 0 y 3. La categoría `A` (Average) queda entre 3 y 7, mientras que la de `P` (Positive) de 7 a 10.
+Observamos que la discretización por `cluster` y `interval` ha cogido como valor `N` (Negative) aproximadamente entre 0 y 3. La categoría `A` (Average) queda entre 3 y 7, mientras que la de `P` (Positive) de 7 a 10. \
 
 Hemos visto también que en estas dos formas de discretización se asignan más valores de `N` que de las otras categorías para todas las variables del conjunto de datos. Esto nos puede llevar a pensar que ha habido cierta tendencia a valorar de manera algo estricta las cosas.
 
 
 ### Análisis bivariante de las variables Cualitativas
 
-Obtén la relación entre las variables [y la clase]{.underline} (ej. matrices de contingencia). Determina el grado de asociación (ej. chi2, CramerV, ...) entre cada variable y la clase.
+Pasamos a obtener la relación entre las variables (matrices de contingencia). Determinaremos el grado de asociación utilizando la **V de Cramer** (`CramerV`). \
+
+Utilizaremos la función `PairApply` de la libería `DescTools` para calcular estadísticos para todos los pares. La función `PlotCorr` 
+
 
 *Nota: La función PairApply de la librería DescTools permite calcular estadísticos para todos los pares. La función PlotCorr permite representar los resultados de PairApply.*
 
@@ -261,7 +290,6 @@ for (method in methods){
   PlotCorr(cramerV_matrix[[method]], main = "")
   title(main = paste("PlotCorr para el método", method), line = -20)
 }
-
 ```
 
 La última columna corresponde a los valores que tienen las distintas variables predictoras con la variable `Bankruptcy`. Un valor de CramerV superior a 0.7 está catalogado como una fuerte relación entre variables categóricas, implicando que `Financial.Flexibility`, `Credibility` y, sobre todo `Competitiveness`, muestran una clara dependencia sobre el valor obtenido para `Bankruptcy`.
