@@ -5,7 +5,7 @@ date: "`r Sys.Date()`"
 output:
   html_document:
     echo: yes
-    number_sections: yes
+    number_sections: no
     theme: readable
     toc: yes
   html_notebook:
@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = F, message = T, error = F, warning = F, comment = N
 
 Como es habitual, cargamos las librerías que necesitamos al inicio del documento.
 
-```{r librerias, message = T, include = T, echo = T}
+```{r librerias, message = T, include = F, echo = F}
 # Carga de librerías necesarias con pacman
 if (!require(pacman)) {
   install.packages("pacman")
@@ -35,7 +35,7 @@ pacman::p_load(float, bookdown, readr, stringr, tidyr, dplyr, readxl, ggplot2, f
 outputFormat   = opts_knit$get("rmarkdown.pandoc.to")
 
 #Figure and Table Caption Numbering, for HTML do it manually
-capTabNo = 1; capFigNo = 1;
+capTabNo = 1; capFigNo = 2;
 
 #Function to add the Table Number
 capTab = function(x){
@@ -58,15 +58,15 @@ capFig = function(x, y){
 
 El trabajo consiste en la creación de la *Red Bayesiana* `Garaje` y realizar ejercicios de inferencia. Se hará uso de los paquetes `bnlearn` y `gRain`.
 
-Un taller dispone de una *Red Bayesiana* para modelizar las probabilidades de su día a día. Los vehículos están caracterizados con las variables Edad (A), Tipo (T), Kilometraje (M) y si necesitan cambios de bujías (SP) y/o frenos (B)
+Un taller dispone de una *Red Bayesiana* para modelizar las probabilidades de su día a día. Los vehículos están caracterizados con las variables Edad (A), Tipo (T), Kilometraje (M) y si necesitan cambios de bujías (SP) y/o frenos (B).
 
-![Garage](./data/bayesGarage.png)
+![Figura 1. Garage.](./data/bayesGarage.png)
 
 # Red Bayesiana
 
 ## Distribución de probabilidad
 
-`Escribe de manera **factorizada** la función densidad de probabilidad conjunta P(A,T,M,SP,B)`.
+Empezaremos escribiendo de manera factorizada la probabilidad conjunta $P(A, T, M, SP, B)$.
 
 Para hallar la distribución de probabilidad conjunta podemos reescribirla a partir de productos de distribuciones condicionados siguiendo la `regla de la cadena`. Así pues, a partir de la imagen proporcionada se deduce que:
 
@@ -74,11 +74,10 @@ $P(A,T,M,SP,B)= P(A) \times P(T) \times P(M|A, T) \times P(SP | M) \times P(B|M)
 
 ## Grafo Acíclico Dirigido
 
-`Creación del Grafo Acíclico Dirigido`
+Vamos a crear el grafo acíclico dirigido. Para ello empelamos la función `model2network`.
 
-Vamos a crear el grafo a partir de la función `model2network`.
 
-```{r acyclic_creation, include = T}
+```{r acyclic_creation, include = T, fig.cap = capFig("Grafo acíclico dirigido creado con `model2ntetwork`", y = "acyclic_creation")}
 nodes <- c("A", "T", "M", "SP", "B")
 
 dag <- model2network("[A][T][M|A:T][SP|M][B|M]", ordering = nodes)
@@ -101,9 +100,9 @@ El término `acíclico` por otra parte indica que noe xisten ciclos, no hay una 
 
 ## CPT, Tablas de probabilidad condicionada
 
-En primer lugar, creamos las matrices/arrays de probabilidad condicionada para cada nodo.
+En primer lugar, creamos las matrices/arrays de probabilidad condicionada para cada nodo. Se muestra el código también de manera explícita en el documento de HTML.
 
-```{r creation_cpt, include = T}
+```{r creation_cpt, include = T, echo = T}
 # Nodo raíz A
 A.lv <- c("n", "m", "o")
 A.prob <- array(c(0.2, 0.4, 0.4), dim = 3, dimnames = list(A = A.lv))
@@ -129,6 +128,7 @@ B.lv <- c("yes", "no")
 B.prob <- array(c(0.7, 0.3, 0.1, 0.9), dim = c(2, 2), dimnames = list(B = B.lv, M = M.lv))
 B.prob
 ```
+Una vez hecho esto, solo necesitamos crear una lista con todos estos arrays: eso es nuestro `cpt`.
 
 ```{r cpt_showing}
 cpt <- list(A = A.prob, T = T.prob, M = M.prob, SP = SP.prob, B = B.prob)
@@ -139,7 +139,7 @@ cpt
 
 Unimos el grafo y las distribuciones locales para crear la *Red Bayesiana*. Para ello, utilizamos la función `custom.fit`.
 
-```{r bn_creation, include = T, fig.cap = capFig("Red bayesiana con probabilidades a priori", y = "bn_creation"), fig.align = "center", fig.pos = "H"}
+```{r bn_creation, include = T, fig.cap = capFig("Red bayesiana con probabilidades a priori marginales.", y = "bn_creation"), fig.align = "center", fig.pos = "H"}
 bn <- custom.fit(dag, cpt)
 bn
 
@@ -148,7 +148,7 @@ graphviz.chart(bn, type = "barprob")
 
 # Inferencia 
 
-## junction tree
+## Creación del Junction Tree
 
 Creamos el árbol de inferencia `junction tree` para acelerar los cálculos de las probabilidades condicionadas de manera exacta.
 
@@ -161,11 +161,11 @@ summary(jt)
 
 ## Razonamiento sin Evidencias
 
-Determina las probabilidades del Kilometraje de los vehículos, $P(M)$, sin ninguna información adicional (evidencias). ¿Hay algún resultado más esperable que otro?
+### Determina las probabilidades del Kilometraje de los vehículos, $P(M)$, sin ninguna información adicional (evidencias). ¿Hay algún resultado más esperable que otro?
 
-Matemáticamente, esto sería $P(M) = \sum_{a, t} \ P(M|A, T) \ P(A = a) P (T = t)$.
+Matemáticamente, esto sería $P(M) = \sum_{a, t} \ P(M|A, T) \ P(A = a) P (T = t)$. Se pone el cálculo realizado a mano explícitamente que permite verificar que esta expresión es la correcta.
 
-```{r pM_hand, include = T}
+```{r pM_hand, include = T, echo = T}
 pMh_amano <- (0.1 * 0.3 * 0.2 + 0.6 * 0.3 * 0.4 + 0.7 * 0.3 * 0.4 + 0.2 * 0.7 * 0.2 + 0.7 * 0.7 * 0.4 + 0.9 * 0.7 * 0.4) / (0.1 * 0.3 * 0.2 + 0.6 * 0.3 * 0.4 + 0.7 * 0.3 * 0.4 + 0.2 * 0.7 * 0.2 + 0.7 * 0.7 * 0.4 + 0.9 * 0.7 * 0.4 + 0.9 * 0.3 * 0.2 + 0.4 * 0.3 * 0.4 + 0.3 * 0.3 * 0.4 + 0.8 * 0.7 * 0.2 + 0.3 * 0.7 * 0.4 + 0.1 * 0.7 * 0.4)
 
 pMl_amano <- 1 - pMh_amano
@@ -175,13 +175,13 @@ pMl_amano
 ```
 Obviamente, esto es mucho más cómodo de calcular con la función `querygrain`.
 
-```{r pM_query, include = T}
+```{r pM_query, include = T, echo = T}
 P_M <- querygrain(jt, nodes = "M", type = "marginal")
 P_M
 ```
 Resulta más esperable que tenga un valor de `h` (high) (kilometraje alto) que bajo `l` (low).
 
-Determina las probabilidades del Kilometraje, $M$, cuando la condicionamos al tipo, $T$. ¿observas cambios en los resultados del Kilometraje? 
+### Determina las probabilidades del Kilometraje, $M$, cuando la condicionamos al tipo, $T$. ¿observas cambios en los resultados del Kilometraje? 
 
 ```{r pM_givenT, include = T}
 pM_T <- querygrain(jt, nodes = c("M", "T"), type = "conditional")
@@ -190,7 +190,7 @@ pM_T
 Al condicionar el kilometraje `M` con el tipo de vehículo `T` observamos cambios, puesto que hay una influencia. En ambos tipos de vehículos `a1` y `a2` se da que la categoría más frecuente para `M` es `h`. Sin embargo, puede apreciarse como para el segundo tipo, `a2`, hay un porcentaje más alto de vehículos con `M = h`.
 
 
-Recupera la distribución de probabilidad CONJUNTA de TODAS las variables del problema. ¿cuál es la situación más probable (MAP)?
+### Recupera la distribución de probabilidad CONJUNTA de TODAS las variables del problema. ¿cuál es la situación más probable (MAP)?
 
 ```{r p_joint, include = T}
 p_joint <- querygrain(jt, type = "joint")
@@ -208,18 +208,20 @@ Un rápido vistazo nos hace ver que esto se da con: $P(A = o, T = a2, M = h, SP 
 
 ## Razonamiento con Evidencias
 
-Determina la probabilidad de la evidencia E={A=n,T=a2,M=l,SP=yes,B=yes}. Interpreta el resultado. *Nota: no es probabilidad marginal.*
+Se mostrará en este apartado el código puesto que puede tener algo más de "miga".
 
-```{r evidence_prob, include = T}
+### Determina la probabilidad de la evidencia $E = {A = n, T = a2, M = l, SP = yes, B = yes}$. Interpreta el resultado.
+
+```{r evidence_prob, include = T, echo = T}
 evidence <- setEvidence(jt, evidence = list(A = "n", T = "a2", M = "l", SP = "yes", B = "yes"))
 
 pEvidence(evidence)
 ```
 Esta corresponde a la probabilidad de la distribución conjunta dados esos valores particulares.
 
-Determina cómo se modifica la probabilidad de cambiar los frenos, $B=yes$, si sabemos que el vehículo es viejo, $A=o$. ¿Aumenta o disminuye? ¿(según las diapositivas de clase) es razonamiento evidencial o causal?
+### Determina cómo se modifica la probabilidad de cambiar los frenos, $B=yes$, si sabemos que el vehículo es viejo, $A=o$. ¿Aumenta o disminuye? ¿(según las diapositivas de clase) es razonamiento evidencial o causal?
 
-```{r B_givenA, include = T}
+```{r B_givenA, include = T, echo = T}
 probB_priori <- querygrain(jt, nodes = "B", type = "marginal")
 probB_priori
 
@@ -229,9 +231,9 @@ probB_ev
 ```
 Si el vehículo es viejo (`A = o`) vemos que la probabilidad de que haya que cambiar los frenos (`B = yes`) se ve incrementada (segundo caso frente al primero). En este caso se trata de un razonamiento causal, puesto que se trata de un tipo de razonamiento "descendente", puesto que especifica cómo la causa genera el efecto.
 
-Determina cómo se modifica la probabilidad de que el vehículo es nuevo, $A=n$, cuando sabemos que necesita un cambio de bujías y de frenos, $SP=yes, B=yes$. ¿(según las diapositivas de clase) es razonamiento evidencial o causal?
+### Determina cómo se modifica la probabilidad de que el vehículo es nuevo, $A=n$, cuando sabemos que necesita un cambio de bujías y de frenos, $SP=yes, B=yes$. ¿(según las diapositivas de clase) es razonamiento evidencial o causal?
 
-```{r A_givenSPandB, include = T}
+```{r A_givenSPandB, include = T, echo = T}
 probA_priori <- querygrain(jt, nodes = "A", type = "marginal")
 probA_priori
 
@@ -241,9 +243,9 @@ probsA_ev
 ```
 Vemos que si necesita cambio de bujía y frenos incrementa la probabilidad de que sea viejo, disminuyendo la de que sea nuevo. En este caso afrontamos un razonamiento diagnóstico/evidencial (razonamiento "ascendente"), ya que vamos desde los efectos a las causas.
 
-Determina cómo se modifica la probabilidad de la edad del vehículo, $A$, cuando sabemos que Kilometraje es alto, $SM=h$, dependiendo del tipo de vehículo $TT. 
+### Determina cómo se modifica la probabilidad de la edad del vehículo, $A$, cuando sabemos que Kilometraje es alto, $SM=h$, dependiendo del tipo de vehículo $TT. 
 
-```{r A_givenM_byT, include = T}
+```{r A_givenM_byT, include = T, echo = T}
 jt_Mh <- setEvidence(jt, nodes = "M", states = "h") 
 
 probA_evT <- querygrain(jt_Mh, nodes = c("A", "T"), type = "conditional")
