@@ -8,8 +8,6 @@ output:
     number_sections: no
     theme: readable
     toc: yes
-  html_notebook:
-    toc: yes
 subtitle: Máster Ciencia de Datos UV
 ---
 
@@ -60,7 +58,7 @@ El trabajo consiste en la creación de la *Red Bayesiana* `Garaje` y realizar ej
 
 Un taller dispone de una *Red Bayesiana* para modelizar las probabilidades de su día a día. Los vehículos están caracterizados con las variables Edad (A), Tipo (T), Kilometraje (M) y si necesitan cambios de bujías (SP) y/o frenos (B).
 
-![Figura 1. Garage.](./data/bayesGarage.png)
+![Figure 1. Esquema de la red bayesiana del garaje.](./data/bayesGarage.png)
 
 # Red Bayesiana
 
@@ -161,7 +159,7 @@ summary(jt)
 
 ## Razonamiento sin Evidencias
 
-### Determina las probabilidades del Kilometraje de los vehículos, $P(M)$, sin ninguna información adicional (evidencias). ¿Hay algún resultado más esperable que otro?
+### Determina las probabilidades del Kilometraje de los vehículos, `P(M)`, sin ninguna información adicional (evidencias). ¿Hay algún resultado más esperable que otro?
 
 Matemáticamente, esto sería $P(M) = \sum_{a, t} \ P(M|A, T) \ P(A = a) P (T = t)$. Se pone el cálculo realizado a mano explícitamente que permite verificar que esta expresión es la correcta.
 
@@ -183,7 +181,7 @@ Resulta más esperable que tenga un valor de `h` (high) (kilometraje alto) que b
 
 ### Determina las probabilidades del Kilometraje, $M$, cuando la condicionamos al tipo, $T$. ¿observas cambios en los resultados del Kilometraje? 
 
-```{r pM_givenT, include = T}
+```{r pM_givenT, include = T, echo = T}
 pM_T <- querygrain(jt, nodes = c("M", "T"), type = "conditional")
 pM_T
 ```
@@ -192,63 +190,79 @@ Al condicionar el kilometraje `M` con el tipo de vehículo `T` observamos cambio
 
 ### Recupera la distribución de probabilidad CONJUNTA de TODAS las variables del problema. ¿cuál es la situación más probable (MAP)?
 
-```{r p_joint, include = T}
+Para esto utilizamos el `type` en `querygrain` correspondiente a `joint`. El resultado se muestra a continuación haciendo además uso de `ftable()`, de forma que pueda visualizarse mejor la tabla de contingencia para todas las variables disponibles.
+
+```{r p_joint, include = T, echo = T}
 p_joint <- querygrain(jt, type = "joint")
 table_joint <- ftable(p_joint)
 table_joint
 ```
-```{r max_joint, include = T}
+Para hallar la situación más probable simplemente tendremos que ver la combinación con mayor valor en la distribución de probabilidad conjunta. 
+
+```{r max_joint, include = T, echo = T}
 max_value_index <- which.max(table_joint)
 max_value <- max(table_joint)
 
 print(paste("El máximo valor de la tabla de probabilidad conjunta es", max_value, ", hallándose en la fila", max_value_index))
 ```
-Un rápido vistazo nos hace ver que esto se da con: $P(A = o, T = a2, M = h, SP = yes, B = yes)$.
+Un rápido vistazo nos hace ver que esto se da con: `P(A = o, T = a2, M = h, SP = yes, B = yes)`.
 
 
 ## Razonamiento con Evidencias
 
-Se mostrará en este apartado el código puesto que puede tener algo más de "miga".
+Se utilizará la función `setEvidence` del paquete `gRain` para estos cálculos.
 
-### Determina la probabilidad de la evidencia $E = {A = n, T = a2, M = l, SP = yes, B = yes}$. Interpreta el resultado.
+### Determina la probabilidad de la evidencia `E = {A = n, T = a2, M = l, SP = yes, B = yes}`. Interpreta el resultado.
 
 ```{r evidence_prob, include = T, echo = T}
 evidence <- setEvidence(jt, evidence = list(A = "n", T = "a2", M = "l", SP = "yes", B = "yes"))
 
 pEvidence(evidence)
 ```
-Esta corresponde a la probabilidad de la distribución conjunta dados esos valores particulares.
+Esta corresponde a la probabilidad de la distribución conjunta dados esos valores particulares, tal y como puede verse en el resultado de la probabilidad conjunta anterior.
 
-### Determina cómo se modifica la probabilidad de cambiar los frenos, $B=yes$, si sabemos que el vehículo es viejo, $A=o$. ¿Aumenta o disminuye? ¿(según las diapositivas de clase) es razonamiento evidencial o causal?
+### Determina cómo se modifica la probabilidad de cambiar los frenos, `B = yes`, si sabemos que el vehículo es viejo, `A = o`. ¿Aumenta o disminuye? ¿(según las diapositivas de clase) es razonamiento evidencial o causal?
 
 ```{r B_givenA, include = T, echo = T}
 probB_priori <- querygrain(jt, nodes = "B", type = "marginal")
+names(probB_priori) <- "Probabilidad priori de B"
 probB_priori
 
 jt_Ao <- setEvidence(jt, nodes = c("A"), states = "o")
-probB_ev <- querygrain(jt_Ao, nodes = c("B"), type = "conditional")
+probB_ev <- querygrain(jt_Ao, nodes = c("B"), type = "marginal") # marginal y conditional arrojan igual resultado, ya que solo está esa en `nodes`
+names(probB_ev) <- "Probabilidad de B condicionada a que A = o"
 probB_ev
 ```
-Si el vehículo es viejo (`A = o`) vemos que la probabilidad de que haya que cambiar los frenos (`B = yes`) se ve incrementada (segundo caso frente al primero). En este caso se trata de un razonamiento causal, puesto que se trata de un tipo de razonamiento "descendente", puesto que especifica cómo la causa genera el efecto.
+Si el vehículo es viejo (`A = o`) vemos que la probabilidad de que haya que cambiar los frenos (`B = yes`) se ve incrementada (segundo caso frente al primero). Esto tiene lógica con lo que cabríamos esperar: un vehículo viejo tiene sentido que aumente su probabilidad de necesitar un cambio de frenos. En este caso se trata de un razonamiento causal, puesto que se trata de un tipo de razonamiento "descendente", puesto que especifica cómo la causa genera el efecto.
 
-### Determina cómo se modifica la probabilidad de que el vehículo es nuevo, $A=n$, cuando sabemos que necesita un cambio de bujías y de frenos, $SP=yes, B=yes$. ¿(según las diapositivas de clase) es razonamiento evidencial o causal?
+### Determina cómo se modifica la probabilidad de que el vehículo es nuevo, `A = n`, cuando sabemos que necesita un cambio de bujías y de frenos, `SP = yes, B = yes`. ¿(según las diapositivas de clase) es razonamiento evidencial o causal?
 
 ```{r A_givenSPandB, include = T, echo = T}
 probA_priori <- querygrain(jt, nodes = "A", type = "marginal")
+names(probA_priori) <- "Probabilidad priori de A"
 probA_priori
 
 jt_SPyBy <-  setEvidence(jt, evidence = list(SP = "yes", B = "yes"))
-probsA_ev <- querygrain(jt_SPyBy, nodes = c("A"), type = "conditional")
+probsA_ev <- querygrain(jt_SPyBy, nodes = c("A"), type = "marginal")
+names(probsA_ev) <- "Probabilidad de A condicionada a que SP = yes y B = yes"
 probsA_ev
+
+#cond <- querygrain(jt, nodes = c("A", "SP", "B"), type = "conditional") Nota: estos resultados también podrían deducirse a partir de aquí, pero no es tan inmediato.
+#ftable(cond)
 ```
 Vemos que si necesita cambio de bujía y frenos incrementa la probabilidad de que sea viejo, disminuyendo la de que sea nuevo. En este caso afrontamos un razonamiento diagnóstico/evidencial (razonamiento "ascendente"), ya que vamos desde los efectos a las causas.
 
-### Determina cómo se modifica la probabilidad de la edad del vehículo, $A$, cuando sabemos que Kilometraje es alto, $SM=h$, dependiendo del tipo de vehículo $TT. 
+### Determina cómo se modifica la probabilidad de la edad del vehículo, `A`, cuando sabemos que Kilometraje es alto, `SM = h`, dependiendo del tipo de vehículo `T`. 
 
 ```{r A_givenM_byT, include = T, echo = T}
 jt_Mh <- setEvidence(jt, nodes = "M", states = "h") 
 
-probA_evT <- querygrain(jt_Mh, nodes = c("A", "T"), type = "conditional")
+probA_evT <- querygrain(jt_Mh, nodes = c("A", "T"), type = "conditional") # aquí sí necesitamos la condicional, teniendo dos nodos.
+print("Probabilidad de A condicionada a T, sabiendo SM = h")
 probA_evT
 ```
 Para ambos tipos de vehículos las probabilidades son similares. Para el tipo `a1` se tiene algo más de probabilidad de que sea nuevo respecto al `a1`, por destacar algo.
+
+# Conclusiones del uso de una red bayesiana
+
+Las redes bayesianas nos han permitido modelar de manera explícita y completa las relaciones probabilísticas entre variables, facilitando la comprensión e inferencia. Resultan además extremadamente flexibles dada su actualización con evidencia adicional en forma de datos observados o suposiciones del dominio, permitiendo que las inferencias se ajusten dinámicamente a medida que se adquiere nueva información.
