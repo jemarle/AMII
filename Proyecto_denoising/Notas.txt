@@ -1,5 +1,5 @@
 1) probar con diferentes componentes para ver cuanto varía el MSE, si no hay significancia
    nos podemos quedar con menos.
-
+35
 2) comparar para distintos kernels
 3) codo sobre 30 componentes
